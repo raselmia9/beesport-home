@@ -13,26 +13,25 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          persist-credentials: true
+      - uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - name: Install packages
+      - name: Install Python Packages
         run: pip install -r requirements.txt
 
-      - name: Run scraper
+      - name: Install Chromium
+        run: playwright install chromium
+
+      - name: Run Scraper
         run: python main.py
 
       - name: Commit output.json
         run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.name github-actions
+          git config user.email github-actions@github.com
           git add output.json
           git diff --cached --quiet && exit 0
           git commit -m "Update output.json"
