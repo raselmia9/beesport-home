@@ -1,35 +1,38 @@
-import requests
-from bs4 import BeautifulSoup
-from urllib.parse import urljoin
+from playwright.sync_api import sync_playwright
 import json
 
 URL = "https://beesport.site/"
 
-headers = {
-    "User-Agent": "Mozilla/5.0"
-}
+with sync_playwright() as p:
+    browser = p.chromium.launch(headless=True)
+    page = browser.new_page()
+    page.goto(URL, wait_until="networkidle")
 
-html = requests.get(URL, headers=headers, timeout=30).text
-soup = BeautifulSoup(html, "html.parser")
+    data = page.evaluate("""
+    () => {
+      const list = [];
+      document.querySelectorAll("a").forEach(a => {
+        const imgs = a.querySelectorAll("img");
+        const names = [...a.querySelectorAll("*")]
+          .map(e => e.innerText?.trim())
+          .filter(Boolean);
 
-matches = []
+        if (imgs.length >= 2 && names.length >= 2) {
+          list.push({
+            team1: names[0],
+            team2: names[1],
+            logo1: imgs[0].src,
+            logo2: imgs[1].src,
+            datetime: a.innerText.split("\\n")[0],
+            matchLink: a.href
+          });
+        }
+      });
+      return list;
+    }
+    """)
 
-for item in soup.select("a"):
-    imgs = item.select("img")
-    names = item.select(".team-name,.team,.team_title")
-    time = item.select_one(".match-time,.time,.date")
-
-    if len(names) >= 2:
-        matches.append({
-            "team1": names[0].get_text(strip=True),
-            "team2": names[1].get_text(strip=True),
-            "logo1": urljoin(URL, imgs[0]["src"]) if len(imgs) > 0 else "",
-            "logo2": urljoin(URL, imgs[1]["src"]) if len(imgs) > 1 else "",
-            "datetime": time.get_text(" ", strip=True) if time else "",
-            "matchLink": urljoin(URL, item.get("href", ""))
-        })
+    browser.close()
 
 with open("output.json", "w", encoding="utf-8") as f:
-    json.dump(matches, f, ensure_ascii=False, indent=2)
-
-print("Saved", len(matches), "matches.")
+    json.dump(data, f, ensure_ascii=False, indent=2)
